@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stages Auto</title>
+<meta name="description" content="Trouver une entreprise d'accueil pour un stage près de chez soi - GRETA Lille Métropole">
+<meta name="theme-color" content="#1f5fbf">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stages Auto">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f2f4f8;--panel:#fff;--ink:#1c2533;--muted:#5d6878;--line:#dde2ea;
+  --accent:#1f5fbf;--accent-ink:#fff;--soft:#e8effb;--c1:#d9480f;--ok:#1f7a4d;
+  --shadow:0 4px 18px rgba(16,24,40,.14);
+  --top:env(safe-area-inset-top,0px);--bot:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151c;--panel:#1b212b;--ink:#e6eaf0;--muted:#9aa5b5;--line:#2c3542;
+  --accent:#5b9bf0;--accent-ink:#0d1420;--soft:#1f2b3d;--c1:#ff8a4c;--ok:#4cc38a;--shadow:0 4px 18px rgba(0,0,0,.5);}}
+:root[data-theme="dark"]{
+  --bg:#11151c;--panel:#1b212b;--ink:#e6eaf0;--muted:#9aa5b5;--line:#2c3542;
+  --accent:#5b9bf0;--accent-ink:#0d1420;--soft:#1f2b3d;--c1:#ff8a4c;--ok:#4cc38a;--shadow:0 4px 18px rgba(0,0,0,.5);}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;height:100dvh}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+
+/* En-tête */
+.top{background:var(--panel);padding:calc(8px + var(--top)) 16px 8px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.top img{height:38px;background:#fff;border-radius:6px;padding:2px 4px;flex:none}
+.top h1{font-size:16px;margin:0;line-height:1.2;flex:1;min-width:0}
+.top .inst{flex:none;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;padding:8px 12px}
+.steps{margin:0;padding-left:22px;display:grid;gap:10px;font-size:15px}
+.note{background:var(--soft);border-radius:12px;padding:10px 12px;font-size:14px}
+.top small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+
+/* Recherche */
+.search{background:var(--panel);padding:10px 16px 8px;position:relative;z-index:1100;box-shadow:0 1px 0 var(--line)}
+.sbox{display:flex;gap:8px}
+.sfield{flex:1;display:flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:0 4px 0 12px;min-height:46px}
+.sfield input{flex:1;border:0;background:transparent;outline:0;padding:10px 0;font-size:16px;min-width:0}
+.sfield button{border:0;background:transparent;width:38px;height:38px;border-radius:10px;font-size:18px;color:var(--muted)}
+.iconbtn{flex:none;width:46px;height:46px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink);font-size:20px;display:grid;place-items:center}
+#sugg{position:absolute;left:16px;right:16px;top:calc(100% - 4px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;display:none}
+#sugg div{padding:12px 14px;border-bottom:1px solid var(--line)}
+#sugg div:last-child{border-bottom:0}
+#sugg div:active{background:var(--soft)}
+#sugg small{color:var(--muted)}
+.rads{display:flex;gap:6px;overflow-x:auto;padding-top:8px;scrollbar-width:none}
+.rads::-webkit-scrollbar{display:none}
+.pill{flex:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 13px;font-size:14px;white-space:nowrap}
+.pill.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.pill.flt{margin-left:auto}
+.pill .n{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--c1);color:#fff;font-size:12px;margin-left:4px;text-align:center}
+
+/* Vues */
+main{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;overflow:auto;-webkit-overflow-scrolling:touch}
+body[data-view="map"] #vMap,body[data-view="list"] #vList,body[data-view="sel"] #vSel{display:block}
+#vMap{overflow:hidden}
+#map{position:absolute;inset:0}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 16px;font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:8px;justify-content:space-between;border-bottom:1px solid var(--line)}
+.bar b{color:var(--ink)}
+.list{padding:10px 12px 24px}
+.empty{padding:40px 24px;text-align:center;color:var(--muted)}
+.empty .big{font-size:40px;margin-bottom:8px}
+
+/* Fiches */
+.card{background:var(--panel);border-radius:14px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(16,24,40,.08);border-left:4px solid var(--line)}
+.card.flash{animation:flash 1.2s}
+@keyframes flash{0%,40%{background:var(--soft)}}
+.card h3{margin:0;font-size:15.5px;display:flex;justify-content:space-between;gap:10px;line-height:1.3}
+.km{color:var(--accent);font-weight:700;white-space:nowrap;font-size:14px}
+.meta{color:var(--muted);font-size:13px;margin-top:2px}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 0}
+.tag{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--soft)}
+.tag.ok{background:var(--ok);color:#fff}
+.tag.warn{background:transparent;border:1px dashed var(--muted);color:var(--muted)}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);text-decoration:none;color:var(--ink);font-size:12px;font-weight:600;padding:4px}
+.act span{font-size:18px;line-height:1}
+.act.dis{opacity:.35;pointer-events:none}
+.act.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+details.more{margin-top:8px;font-size:13.5px}
+details.more summary{color:var(--accent);font-weight:600;cursor:pointer;padding:4px 0;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:" ▾"}
+details.more[open] summary::after{content:" ▴"}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin-top:4px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;word-break:break-word}
+.kv a{color:var(--accent)}
+
+/* Aperçu sur la carte */
+#peek{position:absolute;left:10px;right:10px;bottom:10px;z-index:1000;display:none}
+#peek .card{margin:0;box-shadow:var(--shadow)}
+#peek .x{float:right;border:0;background:transparent;font-size:20px;color:var(--muted);margin:-6px -6px 0 6px}
+.legend{background:var(--panel);color:var(--ink);padding:6px 9px;border-radius:10px;box-shadow:var(--shadow);font-size:12px;line-height:1.7}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px}
+
+/* Barre d'onglets */
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line);padding-bottom:var(--bot);z-index:1100}
+nav.tabs button{border:0;background:transparent;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11.5px;color:var(--muted);position:relative}
+nav.tabs button span{font-size:21px;line-height:1.1;filter:grayscale(1);opacity:.75}
+nav.tabs button.on{color:var(--accent);font-weight:700}
+nav.tabs button.on span{filter:none;opacity:1}
+nav.tabs .badge{position:absolute;top:4px;left:calc(50% + 8px);background:var(--c1);color:#fff;border-radius:9px;font-size:11px;min-width:18px;padding:0 5px;line-height:18px;font-weight:700}
+nav.tabs .badge:empty{display:none}
+
+/* Panneaux (filtres, PDF) */
+.sheet{position:fixed;inset:0;z-index:2000;display:none;flex-direction:column;justify-content:flex-end;background:rgba(10,15,25,.45)}
+.sheet.open{display:flex}
+.sheet .in{background:var(--panel);border-radius:18px 18px 0 0;max-height:92dvh;display:flex;flex-direction:column;padding-bottom:var(--bot);animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}}
+.sheet header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.sheet header h2{margin:0;font-size:17px}
+.sheet header button{border:0;background:transparent;color:var(--accent);font-weight:600;padding:6px}
+.sheet .body{overflow:auto;padding:14px 16px;display:grid;gap:16px}
+.sheet .foot{padding:10px 16px 12px;border-top:1px solid var(--line)}
+.lbl{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;font-size:14px;background:var(--bg)}
+.chip input{display:none}
+.chip:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip small{opacity:.7}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.sw:last-child{border-bottom:0}
+.sw input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.range{display:flex;align-items:center;gap:12px}
+.range input{flex:1;accent-color:var(--accent)}
+.range b{min-width:56px;text-align:right}
+.field{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px}
+.btn{width:100%;border:0;border-radius:14px;padding:14px;font-weight:700;font-size:16px;background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.45}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.radio{display:flex;gap:10px;align-items:center;padding:8px 0;font-size:14.5px}
+.radio input{width:20px;height:20px;accent-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(76px + var(--bot));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:3000;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:.95}
+</style>
+</head>
+<body data-view="map">
+<div class="top">
+  <img src="__LOGO_SRC__" alt="République française - GRETA Lille Métropole">
+  <h1>Stages Auto<small id="dbinfo"></small></h1>
+  <button class="inst" id="install" hidden>📲 Installer</button>
+</div>
+
+<div class="search">
+  <div class="sbox">
+    <div class="sfield">
+      <input type="search" id="q" placeholder="Ville ou adresse du stagiaire" autocomplete="off" enterkeyhint="search">
+      <button id="clear" aria-label="Effacer" hidden>✕</button>
+    </div>
+    <button class="iconbtn" id="geo" aria-label="Utiliser ma position">📍</button>
+  </div>
+  <div id="sugg"></div>
+  <div class="rads" id="rads"></div>
+</div>
+
+<main>
+  <section class="view" id="vMap">
+    <div id="map"></div>
+    <div id="peek"></div>
+  </section>
+  <section class="view" id="vList">
+    <div class="bar"><span id="count">Aucune recherche</span></div>
+    <div class="list" id="list"></div>
+  </section>
+  <section class="view" id="vSel">
+    <div class="bar"><span id="selCount"></span><button class="pill" id="selClear">Vider</button></div>
+    <div class="list" id="selList"></div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="map" class="on"><span>🗺️</span>Carte</button>
+  <button data-tab="list"><span>📋</span>Liste<i class="badge" id="bList"></i></button>
+  <button data-tab="filters"><span>⚙️</span>Filtres<i class="badge" id="bFlt"></i></button>
+  <button data-tab="sel"><span>⭐</span>Sélection<i class="badge" id="bSel"></i></button>
+</nav>
+
+<!-- Filtres -->
+<div class="sheet" id="shF" role="dialog" aria-modal="true" aria-labelledby="fTitle">
+  <div class="in">
+    <header><button id="fReset">Réinitialiser</button><h2 id="fTitle">Filtres</h2><button data-close>OK</button></header>
+    <div class="body">
+      <div>
+        <div class="lbl">Rayon de recherche</div>
+        <div class="range"><input type="range" id="rad" min="1" max="100" value="15"><b id="radv">15 km</b></div>
+      </div>
+      <div>
+        <div class="lbl">Prestations recherchées</div>
+        <div class="chips" id="prest"></div>
+        <label class="sw" style="border:0"><span>Inclure les prestations « probables » (à confirmer)</span><input type="checkbox" id="fProb" checked></label>
+      </div>
+      <div>
+        <div class="lbl">Entreprise</div>
+        <label class="sw"><span>Avec téléphone ou e-mail</span><input type="checkbox" id="fContact"></label>
+        <label class="sw"><span>Recrute actuellement</span><input type="checkbox" id="fRecrute"></label>
+        <label class="sw"><span>Adresse précise uniquement</span><input type="checkbox" id="fPrecise"></label>
+      </div>
+      <div class="row2">
+        <div><div class="lbl">Taille</div><select class="field" id="taille"></select></div>
+        <div><div class="lbl">Trier par</div>
+          <select class="field" id="tri"><option value="dist">Distance</option><option value="taille">Taille</option><option value="nom">Nom</option></select></div>
+      </div>
+      <div><div class="lbl">Nom de l'entreprise</div><input class="field" type="search" id="nom" placeholder="Rechercher un nom…"></div>
+    </div>
+    <div class="foot"><button class="btn" data-close id="fGo">Voir les résultats</button></div>
+  </div>
+</div>
+
+<!-- Export PDF -->
+<div class="sheet" id="shP" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <div class="in">
+    <header><span></span><h2 id="pTitle">Créer le PDF</h2><button data-close>Fermer</button></header>
+    <div class="body">
+      <div><div class="lbl">Nom du stagiaire (facultatif)</div><input class="field" id="mStag" placeholder="ex. Lucas Martin" autocomplete="name"></div>
+      <div><div class="lbl">Formation / organisme (facultatif)</div><input class="field" id="mOrg" placeholder="ex. CAP Maintenance des véhicules"></div>
+      <div>
+        <div class="lbl">Entreprises à inclure</div>
+        <label class="radio"><input type="radio" name="mWhich" id="mSel"> <span id="mSelLbl">Ma sélection</span></label>
+        <label class="radio"><input type="radio" name="mWhich" id="mAll"> <span id="mAllLbl">Toute la liste</span></label>
+        <label class="sw"><span>Seulement celles avec téléphone ou e-mail</span><input type="checkbox" id="mContact"></label>
+        <label class="sw"><span>Cases de suivi (contacté, relance, entretien)</span><input type="checkbox" id="mSuivi" checked></label>
+      </div>
+    </div>
+    <div class="foot row2" id="mFoot"><button class="btn" id="mDl">⬇️ Télécharger le PDF</button><button class="btn sec" id="mShare">📤 Partager</button></div>
+  </div>
+</div>
+<!-- Aide à l'installation -->
+<div class="sheet" id="shI" role="dialog" aria-modal="true" aria-labelledby="iTitle">
+  <div class="in">
+    <header><span></span><h2 id="iTitle">Installer l'application</h2><button data-close>Fermer</button></header>
+    <div class="body" id="iBody"></div>
+    <div class="foot"><button class="btn" id="iCopy">🔗 Copier le lien de l'application</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DB = /*__DATA__*/null;
+const LOGO = document.querySelector('.top img').src, LOGO_RATIO = 454 / 142;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[-']/g, ' ').trim();
+const cssVar = v => v.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() : v;
+const store = {
+  get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ } }
+};
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200); };
+
+const keyOf = e => e.siret || e.n + '|' + e.a;
+const hasContact = e => !!(e.t || e.m || e.mrh);
+const colorOf = e => hasContact(e) ? 'var(--c1)' : 'var(--accent)';
+const BY_KEY = new Map(DB.e.map(e => [keyOf(e), e]));
+const prestTxt = e => ({ oui: e.po.map(i => DB.prest[i]).join(', '), prob: e.pp.map(i => DB.prest[i]).join(', ') });
+const hasPrest = (e, i, prob) => e.po.includes(i) || (prob && e.pp.includes(i));
+
+let origin = null, results = [], shown = 100, rad = 15;
+// Sélection conservée d'une recherche à l'autre et d'une ouverture à l'autre
+const picked = new Set(store.get('loc_sel').split('\n').filter(k => BY_KEY.has(k)));
+const savePicked = () => store.set('loc_sel', [...picked].join('\n'));
+
+/* ---------- Navigation ---------- */
+function show(view) {
+  if (view === 'filters') return openSheet('#shF');
+  document.body.dataset.view = view;
+  document.querySelectorAll('nav.tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === view));
+  if (view === 'map') setTimeout(() => map.invalidateSize(), 0);
+  if (view === 'sel') drawSel();
+}
+document.querySelectorAll('nav.tabs [data-tab]').forEach(b => b.onclick = () => show(b.dataset.tab));
+function openSheet(id) { $(id).classList.add('open'); }
+function closeSheets() { document.querySelectorAll('.sheet.open').forEach(s => s.classList.remove('open')); }
+document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => {
+  if (e.target === s || e.target.closest('[data-close]')) closeSheets();
+}));
+
+/* ---------- Filtres ---------- */
+$('#dbinfo').textContent = `GRETA Lille Métropole · ${DB.e.length.toLocaleString('fr-FR')} entreprises`;
+const RADS = [5, 10, 15, 25, 50];
+$('#rads').innerHTML = RADS.map(r => `<button class="pill" data-r="${r}">${r} km</button>`).join('') +
+  '<button class="pill flt" id="fltBtn">⚙️ Filtres<i class="n" id="fltN" hidden></i></button>';
+$('#rads').addEventListener('click', e => {
+  const b = e.target.closest('[data-r]');
+  if (b) setRad(+b.dataset.r, true);
+});
+$('#fltBtn').onclick = () => openSheet('#shF');
+function setRad(r, fit) {
+  rad = r; $('#rad').value = r; $('#radv').textContent = r + ' km';
+  document.querySelectorAll('#rads [data-r]').forEach(b => b.classList.toggle('on', +b.dataset.r === r));
+  compute(fit);
+}
+$('#rad').addEventListener('input', () => setRad(+$('#rad').value, false));
+
+const prestBox = $('#prest');
+prestBox.innerHTML = DB.prest.map((p, i) =>
+  `<label class="chip"><input type="checkbox" value="${i}">${esc(p)} <small data-n="${i}"></small></label>`).join('');
+function drawPrestCounts() {
+  const prob = $('#fProb').checked;
+  DB.prest.forEach((p, i) => { prestBox.querySelector(`[data-n="${i}"]`).textContent = DB.e.filter(e => hasPrest(e, i, prob)).length; });
+}
+drawPrestCounts();
+$('#taille').innerHTML = '<option value="-1">Toutes</option>' +
+  DB.tailles.map((t, i) => i ? `<option value="${i}">${esc(t.replace(/^(\S+).*/, '$1 sal. et +'))}</option>` : '').join('');
+$('#fReset').onclick = () => {
+  prestBox.querySelectorAll('input').forEach(i => i.checked = false);
+  ['#fContact', '#fRecrute', '#fPrecise'].forEach(s => $(s).checked = false);
+  $('#fProb').checked = true; $('#taille').value = '-1'; $('#tri').value = 'dist'; $('#nom').value = '';
+  drawPrestCounts(); compute(false);
+};
+['#taille', '#tri', '#fContact', '#fRecrute', '#fPrecise'].forEach(s => $(s).addEventListener('change', () => compute(false)));
+prestBox.addEventListener('change', () => compute(false));
+$('#fProb').addEventListener('change', () => { drawPrestCounts(); compute(false); });
+$('#nom').addEventListener('input', () => compute(false));
+function activeFilters() {
+  return prestBox.querySelectorAll('input:checked').length + ['#fContact', '#fRecrute', '#fPrecise'].filter(s => $(s).checked).length
+    + ($('#taille').value !== '-1') + !!$('#nom').value.trim() + !$('#fProb').checked;
+}
+
+/* ---------- Carte ---------- */
+const map = L.map('map', { preferCanvas: true, zoomControl: false }).setView([50.3, 2.8], 8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+let originMarker = null, circle = null;
+const legend = L.control({ position: 'topright' });
+legend.onAdd = () => {
+  const d = L.DomUtil.create('div', 'legend');
+  d.innerHTML = `<span class="dot" style="background:${cssVar('var(--c1)')}"></span>Avec contact<br><span class="dot" style="background:${cssVar('var(--accent)')}"></span>Sans contact`;
+  return d;
+};
+legend.addTo(map);
+map.on('click', () => { $('#peek').style.display = 'none'; });
+
+/* ---------- Géocodage (Base Adresse Nationale) ---------- */
+const GEO_URLS = [
+  q => `https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(q)}&limit=6&index=address&lat=50.1&lon=2.8`,
+  q => `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=6&lat=50.1&lon=2.8`
+];
+async function geocode(q) {
+  for (const u of GEO_URLS) {
+    try {
+      // Les communes d'abord, puis les adresses (sinon « Amiens » donne « Rue d'Amiens »)
+      const [rv, ra] = await Promise.all([fetch(u(q) + '&type=municipality'), fetch(u(q))]);
+      if (!ra.ok) continue;
+      const feats = [...(rv.ok ? (await rv.json()).features.slice(0, 2) : []), ...(await ra.json()).features];
+      const seen = new Set();
+      return feats.map(f => ({
+        label: f.properties.label, ctx: f.properties.context || '',
+        type: f.properties.type, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
+      })).filter(s => !seen.has(s.label) && seen.add(s.label)).slice(0, 5);
+    } catch (e) { /* essai suivant */ }
+  }
+  return localGeocode(q);
+}
+// Repli hors connexion : villes / codes postaux présents dans le tableau
+function localGeocode(q) {
+  const nq = norm(q), groups = {};
+  DB.e.forEach(e => {
+    if (norm(e.v).startsWith(nq) || e.cp === q.trim()) {
+      const k = e.v + '|' + e.cp;
+      (groups[k] ||= { label: `${e.v} (${e.cp})`, ctx: 'ville du tableau', pts: [] }).pts.push(e);
+    }
+  });
+  return Object.values(groups).sort((a, b) => b.pts.length - a.pts.length).slice(0, 5).map(g => ({
+    label: g.label, ctx: g.ctx, type: 'municipality',
+    lat: g.pts.reduce((s, p) => s + p.lat, 0) / g.pts.length,
+    lon: g.pts.reduce((s, p) => s + p.lon, 0) / g.pts.length
+  }));
+}
+
+let suggs = [], timer, reqId = 0;
+const sBox = $('#sugg');
+function drawSugg() {
+  sBox.style.display = suggs.length ? 'block' : 'none';
+  sBox.innerHTML = suggs.map((s, i) => `<div data-i="${i}">${esc(s.label)}<br><small>${esc(s.ctx)}</small></div>`).join('');
+}
+$('#q').addEventListener('input', () => {
+  clearTimeout(timer);
+  const q = $('#q').value.trim();
+  $('#clear').hidden = !q;
+  if (q.length < 3) { suggs = []; drawSugg(); return; }
+  const id = ++reqId;
+  timer = setTimeout(async () => { const r = await geocode(q); if (id !== reqId) return; suggs = r; drawSugg(); }, 250);
+});
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); search(); } });
+$('#clear').onclick = () => { $('#q').value = ''; $('#clear').hidden = true; suggs = []; drawSugg(); $('#q').focus(); };
+sBox.addEventListener('click', e => { const d = e.target.closest('[data-i]'); if (d) pick(suggs[+d.dataset.i]); });
+document.addEventListener('click', e => { if (!e.target.closest('.search')) { suggs = []; drawSugg(); } });
+
+async function search() {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  clearTimeout(timer); reqId++;
+  $('#q').blur();
+  const r = await geocode(q);
+  if (!r.length) return toast('Adresse introuvable');
+  // Une ville saisie seule doit l'emporter sur une rue qui porte son nom
+  const nq = norm(q);
+  pick(r.find(x => x.type === 'municipality' && norm(x.label).startsWith(nq)) || r[0]);
+}
+function pick(s) {
+  clearTimeout(timer); reqId++;
+  suggs = []; drawSugg();
+  $('#q').value = s.label; $('#clear').hidden = false; $('#q').blur();
+  setOrigin(s.lat, s.lon, s.label);
+}
+$('#geo').onclick = () => {
+  if (!navigator.geolocation) return toast('Géolocalisation non disponible');
+  toast('Localisation en cours…');
+  navigator.geolocation.getCurrentPosition(
+    p => { $('#q').value = 'Ma position'; $('#clear').hidden = false; setOrigin(p.coords.latitude, p.coords.longitude, 'Ma position'); },
+    () => toast('Position refusée ou indisponible'), { enableHighAccuracy: true, timeout: 10000 });
+};
+function setOrigin(lat, lon, label) {
+  origin = { lat, lon, label };
+  store.set('loc_origin', JSON.stringify(origin));
+  if (originMarker) originMarker.remove();
+  originMarker = L.marker([lat, lon], { zIndexOffset: 1000 }).addTo(map);
+  compute(true);
+  if (document.body.dataset.view === 'sel') drawSel();
+}
+
+/* ---------- Calcul ---------- */
+function km(a, b, c, d) {
+  const R = 6371, r = Math.PI / 180, dLa = (c - a) * r, dLo = (d - b) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const withDist = e => ({ ...e, dist: origin ? km(origin.lat, origin.lon, e.lat, e.lon) : null });
+function compute(fit) {
+  const nF = activeFilters();
+  $('#fltN').hidden = !nF; $('#fltN').textContent = nF; $('#bFlt').textContent = nF || '';
+  if (!origin) return;
+  const prests = [...prestBox.querySelectorAll('input:checked')].map(i => +i.value), prob = $('#fProb').checked;
+  const tmin = +$('#taille').value, nom = norm($('#nom').value);
+  const fc = $('#fContact').checked, fr = $('#fRecrute').checked, fp = $('#fPrecise').checked;
+  results = [];
+  for (const e of DB.e) {
+    if (prests.length && !prests.some(i => hasPrest(e, i, prob))) continue;
+    if (tmin > 0 && e.e < tmin) continue;
+    if (fc && !hasContact(e)) continue;
+    if (fr && e.r !== 'Oui') continue;
+    if (fp && e.ap) continue;
+    if (nom && !norm(e.n).includes(nom)) continue;
+    const d = km(origin.lat, origin.lon, e.lat, e.lon);
+    if (d <= rad) results.push({ ...e, dist: d });
+  }
+  const tri = $('#tri').value;
+  results.sort(tri === 'taille' ? (a, b) => b.e - a.e || a.dist - b.dist
+    : tri === 'nom' ? (a, b) => a.n.localeCompare(b.n, 'fr') : (a, b) => a.dist - b.dist);
+  shown = 100;
+  $('#fGo').textContent = `Voir les ${results.length} résultat${results.length > 1 ? 's' : ''}`;
+  drawMap(fit); drawList();
+}
+
+function drawMap(fit) {
+  layer.clearLayers(); $('#peek').style.display = 'none';
+  if (circle) circle.remove();
+  circle = L.circle([origin.lat, origin.lon], { radius: rad * 1000, color: cssVar('var(--accent)'), weight: 1.5, fillOpacity: .05, interactive: false }).addTo(map);
+  results.forEach(e => {
+    L.circleMarker([e.lat, e.lon], {
+      radius: 6 + Math.min(e.e, 8) * .6, color: '#fff', weight: 1.5, fillColor: cssVar(colorOf(e)), fillOpacity: .92
+    }).on('click', ev => { L.DomEvent.stopPropagation(ev); peek(e); }).addTo(layer);
+  });
+  if (fit) map.fitBounds(circle.getBounds(), { padding: [10, 10] });
+}
+function peek(e) {
+  const p = $('#peek');
+  p.innerHTML = card(e, true);
+  p.style.display = 'block';
+}
+
+/* ---------- Fiches ---------- */
+const extUrl = u => /^https?:\/\//i.test(u) ? u : 'https://' + u;
+const firstPhone = t => (t || '').split('/')[0].replace(/[^\d+]/g, '');
+function card(e, compact) {
+  const k = keyOf(e), on = picked.has(k), mail = e.mrh || e.m;
+  const tags = [
+    ...e.po.map(p => `<span class="tag">${esc(DB.prest[p])}</span>`),
+    ...e.pp.map(p => `<span class="tag warn">${esc(DB.prest[p])} ?</span>`),
+    e.e >= 0 ? `<span class="tag">${esc(DB.tailles[e.e])}</span>` : '',
+    e.r === 'Oui' ? '<span class="tag ok">Recrute</span>' : ''
+  ].join('');
+  const dest = encodeURIComponent(`${e.a}, ${e.cp} ${e.v}`);
+  const route = `https://www.google.com/maps/dir/?api=1${origin ? `&origin=${origin.lat},${origin.lon}` : ''}&destination=${dest}`;
+  const acts = `<div class="acts">
+    <a class="act${e.t ? '' : ' dis'}" href="tel:${esc(firstPhone(e.t))}"><span>📞</span>Appeler</a>
+    <a class="act${mail ? '' : ' dis'}" href="mailto:${esc(mail)}"><span>✉️</span>E-mail</a>
+    <a class="act" target="_blank" rel="noopener" href="${route}"><span>🧭</span>Itinéraire</a>
+    <button class="act${on ? ' on' : ''}" data-pick="${esc(k)}"><span>${on ? '★' : '☆'}</span>${on ? 'Retenue' : 'Retenir'}</button></div>`;
+  const kv = [
+    e.t && ['Téléphone', e.t.split('/').map(t => `<a href="tel:${esc(t.replace(/[^\d+]/g, ''))}">${esc(t.trim())}</a>`).join('<br>')],
+    e.mrh && ['E-mail RH', `<a href="mailto:${esc(e.mrh)}">${esc(e.mrh)}</a>`],
+    e.m && ['E-mail', `<a href="mailto:${esc(e.m)}">${esc(e.m)}</a>`],
+    e.c && ['Contact', esc(e.c)],
+    e.d && ['Dirigeant(s)', esc(e.d)],
+    e.o && ['Offres', esc(e.o)],
+    ['Activité', esc(e.act || e.s)],
+    e.w && ['Site web', `<a target="_blank" rel="noopener" href="${esc(extUrl(e.w))}">${esc(e.w)}</a>`],
+    e.li && ['LinkedIn', `<a target="_blank" rel="noopener" href="${esc(e.li)}">Page entreprise</a>`],
+    e.lirh && ['LinkedIn RH', `<a target="_blank" rel="noopener" href="${esc(e.lirh.split(/[\s;]+/)[0])}">Profil RH</a>`],
+    e.f && ['Fiche', `<a target="_blank" rel="noopener" href="${esc(e.f)}">Annuaire officiel</a>`],
+    e.ap && ['Position', 'approximative (code postal)']
+  ].filter(Boolean).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  return `<div class="card" data-k="${esc(k)}" style="border-left-color:${colorOf(e)}">
+    ${compact ? '<button class="x" data-closepeek aria-label="Fermer">✕</button>' : ''}
+    <h3><span>${esc(e.n)}</span>${e.dist != null ? `<span class="km">${e.dist.toFixed(1).replace('.', ',')} km</span>` : ''}</h3>
+    <div class="meta">${esc(e.a)}, ${esc(e.cp)} ${esc(e.v)}</div>
+    <div class="tags">${tags}</div>
+    ${acts}
+    <details class="more"><summary>Plus d'infos</summary><dl class="kv">${kv}</dl></details></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-pick]');
+  if (b) {
+    const k = b.dataset.pick, on = !picked.has(k);
+    on ? picked.add(k) : picked.delete(k);
+    savePicked();
+    document.querySelectorAll(`[data-pick="${CSS.escape(k)}"]`).forEach(x => {
+      x.classList.toggle('on', on); x.innerHTML = `<span>${on ? '★' : '☆'}</span>${on ? 'Retenue' : 'Retenir'}`;
+    });
+    toast(on ? 'Ajoutée à la sélection' : 'Retirée de la sélection');
+    drawBadges();
+    if (!on && document.body.dataset.view === 'sel') drawSel();
+    return;
+  }
+  if (e.target.closest('[data-closepeek]')) $('#peek').style.display = 'none';
+});
+
+function drawBadges() {
+  $('#bList').textContent = origin ? (results.length > 999 ? '999+' : results.length) : '';
+  $('#bSel').textContent = picked.size || '';
+}
+function drawList() {
+  drawBadges();
+  const nC = results.filter(hasContact).length;
+  $('#count').innerHTML = `<b>${results.length}</b> entreprise${results.length > 1 ? 's' : ''} à ${rad} km · ${nC} avec contact`;
+  if (!results.length) {
+    $('#list').innerHTML = '<div class="empty"><div class="big">🔍</div>Aucune entreprise ne correspond.<br>Élargissez le rayon ou retirez des filtres.</div>';
+    return;
+  }
+  $('#list').innerHTML = results.slice(0, shown).map(e => card(e)).join('') +
+    (results.length > shown ? `<button class="btn sec" id="more">Afficher ${Math.min(100, results.length - shown)} de plus</button>` : '') +
+    `<div style="margin-top:12px"><button class="btn" data-pdf>📄 Créer le PDF</button></div>`;
+  const more = $('#more');
+  if (more) more.onclick = () => { shown += 100; drawList(); };
+}
+function selEntries() {
+  return [...picked].map(k => withDist(BY_KEY.get(k))).sort((a, b) => (a.dist ?? 0) - (b.dist ?? 0));
+}
+function drawSel() {
+  const list = selEntries();
+  $('#selCount').innerHTML = `<b>${list.length}</b> entreprise${list.length > 1 ? 's' : ''} retenue${list.length > 1 ? 's' : ''}`;
+  $('#selClear').hidden = !list.length;
+  $('#selList').innerHTML = list.length
+    ? list.map(e => card(e)).join('') + '<button class="btn" data-pdf>📄 Créer le PDF de la sélection</button>'
+    : '<div class="empty"><div class="big">⭐</div>Aucune entreprise retenue.<br>Touchez « Retenir » sur une fiche pour l\'ajouter ici, puis créez le PDF à donner au stagiaire.</div>';
+}
+$('#selClear').onclick = () => {
+  if (!confirm('Vider la sélection ?')) return;
+  picked.clear(); savePicked(); drawSel(); drawBadges(); if (origin) drawList();
+};
+
+/* ---------- Export PDF ---------- */
+document.addEventListener('click', e => {
+  if (!e.target.closest('[data-pdf]')) return;
+  $('#mSelLbl').textContent = `Ma sélection (${picked.size})`;
+  $('#mAllLbl').textContent = `Toute la liste affichée (${results.length})`;
+  $('#mSel').disabled = !picked.size; $('#mAll').disabled = !results.length;
+  (picked.size && (document.body.dataset.view === 'sel' || !results.length) ? $('#mSel') : $('#mAll')).checked = true;
+  $('#mOrg').value = $('#mOrg').value || store.get('loc_org');
+  openSheet('#shP');
+});
+// Le bouton Partager n'apparaît que si l'appareil sait partager un fichier
+const canShareFiles = (() => {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'test.pdf', { type: 'application/pdf' })] })); }
+  catch (e) { return false; }
+})();
+if (!canShareFiles) { $('#mShare').hidden = true; $('#mFoot').classList.remove('row2'); }
+
+function makePdf() {
+  if (!window.jspdf) { toast('Connexion internet nécessaire'); return null; }
+  let list = $('#mSel').checked ? selEntries() : results.slice();
+  if ($('#mContact').checked) list = list.filter(hasContact);
+  if (!list.length) { toast('Aucune entreprise à exporter'); return null; }
+  store.set('loc_org', $('#mOrg').value.trim());
+  const { doc, name } = buildPdf(list, { stagiaire: $('#mStag').value.trim(), org: $('#mOrg').value.trim(), suivi: $('#mSuivi').checked });
+  return { blob: doc.output('blob'), name };
+}
+$('#mDl').onclick = () => {
+  const pdf = makePdf();
+  if (!pdf) return;
+  const url = URL.createObjectURL(pdf.blob);
+  // iPhone en mode application : le téléchargement direct n'existe pas, on ouvre le PDF (bouton Partager → Enregistrer)
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) && installed) {
+    window.open(url, '_blank');
+  } else {
+    const a = document.createElement('a');
+    a.href = url; a.download = pdf.name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('PDF téléchargé (dossier Téléchargements)');
+  }
+  closeSheets();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+$('#mShare').onclick = async () => {
+  const pdf = makePdf();
+  if (!pdf) return;
+  const file = new File([pdf.blob], pdf.name, { type: 'application/pdf' });
+  try { await navigator.share({ files: [file], title: 'Entreprises à contacter' }); closeSheets(); }
+  catch (err) { if (err.name !== 'AbortError') toast('Partage impossible : utilisez Télécharger'); }
+};
+
+// Les polices standard du PDF ne couvrent que le jeu Latin-1 (+ quelques signes)
+const pdfTxt = s => String(s ?? '').replace(/[   ]/g, ' ').replace(/[‘’]/g, "'")
+  .replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/[^\x0a\x20-\x7e\xa0-\xffŒœ€]/g, '');
+const kmTxt = d => d == null ? '' : d.toFixed(1).replace('.', ',') + ' km';
+
+function buildPdf(list, opt) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 15, CW = W - 2 * M, FOOT = 16;
+  const BLUE = [31, 95, 191], INK = [28, 37, 51], GREY = [100, 110, 125], LINE = [215, 221, 230], ORANGE = [217, 72, 15];
+  const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const set = (size, style = 'normal', color = INK) => { doc.setFont('helvetica', style); doc.setFontSize(size); doc.setTextColor(...color); };
+  const lines = (txt, w) => doc.splitTextToSize(pdfTxt(txt), w);
+  const LH = s => s * 0.42; // hauteur de ligne en mm pour une taille de police donnée
+
+  // En-tête de la première page : logo sur fond blanc, puis bandeau titre
+  doc.addImage(LOGO, 'PNG', M, 7, 16 * LOGO_RATIO, 16);
+  set(9, 'normal', GREY); doc.text(pdfTxt(today), W - M, 17, { align: 'right' });
+  doc.setFillColor(...BLUE); doc.rect(0, 28, W, 22, 'F');
+  set(17, 'bold', [255, 255, 255]); doc.text('Entreprises à contacter', M, 38.5);
+  set(10, 'normal', [220, 232, 250]); doc.text(pdfTxt('Recherche de stage - secteur automobile, transport et logistique'), M, 45.5);
+
+  let y = 60;
+  const info = [
+    opt.stagiaire && ['Stagiaire', opt.stagiaire],
+    opt.org && ['Formation / organisme', opt.org],
+    origin && ['Point de départ', origin.label],
+    origin && ['Rayon de recherche', rad + ' km'],
+    ['Entreprises', `${list.length} (dont ${list.filter(hasContact).length} avec téléphone ou e-mail)`]
+  ].filter(Boolean);
+  info.forEach(([k, v]) => {
+    set(9.5, 'bold', GREY); doc.text(pdfTxt(k), M, y);
+    set(9.5, 'normal'); const l = lines(v, CW - 45); doc.text(l, M + 45, y);
+    y += l.length * LH(9.5) + 2.2;
+  });
+  y += 2; doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 7;
+
+  list.forEach((e, n) => {
+    // Préparation du contenu pour mesurer la hauteur du bloc
+    const TX = M + 9, TW = CW - 9 - 24;
+    const name = lines(e.n, TW);
+    const addr = lines(`${e.a}, ${e.cp} ${e.v}`, TW);
+    const act = lines([e.act || e.s, DB.tailles[e.e], e.r === 'Oui' ? 'Recrute actuellement' : ''].filter(Boolean).join('  ·  '), TW);
+    const rows = [];
+    const pr = prestTxt(e);
+    if (pr.oui || pr.prob) rows.push(['Prestations', [pr.oui, pr.prob && pr.prob + ' (probable)'].filter(Boolean).join(', ')]);
+    if (e.t) rows.push(['Téléphone', e.t.replace(/\s*\/\s*/g, '  /  ')]);
+    if (e.mrh) rows.push(['E-mail RH', e.mrh]);
+    if (e.m) rows.push(['E-mail', e.m]);
+    if (e.c) rows.push(['Contact', e.c]);
+    else if (e.d) rows.push(['Dirigeant(s)', e.d]);
+    if (e.w) rows.push(['Site web', e.w]);
+    const rowL = rows.map(([k, v]) => [k, lines(v, TW - 24)]);
+    const h = name.length * LH(11) + addr.length * LH(9) + act.length * LH(8.5) + 3
+      + rowL.reduce((s, r) => s + r[1].length * LH(9) + 1, 0) + (hasContact(e) ? 0 : LH(8.5) + 1) + (opt.suivi ? 7 : 0) + 6;
+    if (y + h > H - FOOT) { doc.addPage(); y = 18; }
+
+    // Numéro (orange si l'entreprise est joignable)
+    doc.setFillColor(...(hasContact(e) ? ORANGE : BLUE)); doc.circle(M + 3.2, y - 1.3, 3.2, 'F');
+    set(8, 'bold', [255, 255, 255]); doc.text(String(n + 1), M + 3.2, y - 0.2, { align: 'center' });
+
+    set(11, 'bold'); doc.text(name, TX, y);
+    set(10, 'bold', BLUE); doc.text(kmTxt(e.dist), W - M, y, { align: 'right' });
+    y += name.length * LH(11) + 0.8;
+    set(9, 'normal', GREY); doc.text(addr, TX, y); y += addr.length * LH(9);
+    set(8.5, 'italic', GREY); doc.text(act, TX, y); y += act.length * LH(8.5) + 2;
+
+    rowL.forEach(([k, l]) => {
+      const strong = k === 'Téléphone' || k.startsWith('E-mail');
+      set(9, 'bold', GREY); doc.text(pdfTxt(k), TX, y);
+      set(9, strong ? 'bold' : 'normal', strong ? INK : GREY); doc.text(l, TX + 24, y);
+      if (k.startsWith('E-mail')) doc.link(TX + 24, y - 3, doc.getTextWidth(l[0]), 4, { url: 'mailto:' + l[0] });
+      if (k === 'Téléphone') doc.link(TX + 24, y - 3, doc.getTextWidth(l[0]), 4, { url: 'tel:' + firstPhone(e.t) });
+      y += l.length * LH(9) + 1;
+    });
+    if (!hasContact(e)) {
+      set(8.5, 'italic', GREY); doc.text(pdfTxt('Téléphone et e-mail non renseignés - se présenter sur place ou consulter la fiche officielle.'), TX, y);
+      if (e.f) doc.link(TX, y - 3, CW - 9, 4, { url: e.f });
+      y += LH(8.5) + 1;
+    }
+    if (opt.suivi) {
+      y += 1.5;
+      set(8, 'normal', GREY);
+      let x = TX;
+      ['Contacté le ___ / ___', 'Relancé le ___ / ___', 'Entretien', 'Stage obtenu'].forEach(lbl => {
+        doc.setDrawColor(...GREY); doc.setLineWidth(0.25); doc.rect(x, y - 2.6, 2.8, 2.8);
+        doc.text(pdfTxt(lbl), x + 4, y); x += doc.getTextWidth(pdfTxt(lbl)) + 10;
+      });
+      y += 4;
+    }
+    // Séparateur
+    y += 2;
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(TX, y, W - M, y);
+    y += 6;
+  });
+
+  // Pieds de page
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, H - 11, W - M, H - 11);
+    set(7.5, 'normal', GREY);
+    doc.text(pdfTxt('Source : registre national des entreprises (SIRENE / RNE) - coordonnées complétées par recherche web pour les 50 salariés et plus.'), M, H - 7);
+    doc.text(`Page ${p} / ${pages}`, W - M, H - 7, { align: 'right' });
+  }
+
+  const slug = s => norm(s).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+  const name = ['Entreprises_stage', opt.stagiaire && slug(opt.stagiaire), origin && slug(origin.label.split(' ').slice(-1)[0] || origin.label),
+    new Date().toISOString().slice(0, 10)].filter(Boolean).join('_') + '.pdf';
+  return { doc, name };
+}
+
+/* ---------- Installation sur l'écran d'accueil ---------- */
+const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installEvt = null;
+$('#install').hidden = installed;
+// Chrome / Edge / Samsung Internet : proposition d'installation native
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#install').hidden = false; });
+window.addEventListener('appinstalled', () => { $('#install').hidden = true; installEvt = null; toast('Application installée'); });
+$('#install').onclick = async () => {
+  if (installEvt) {
+    installEvt.prompt();
+    await installEvt.userChoice;
+    installEvt = null;
+    return;
+  }
+  // Pas de proposition native : on explique la marche à suivre selon l'appareil
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua);
+  const inApp = /; wv\)|FBAN|FBAV|Instagram|Line\/|GSA\/|Snapchat|MicroMessenger/.test(ua);
+  const samsung = /SamsungBrowser/.test(ua);
+  let html = '';
+  if (location.protocol !== 'https:') {
+    html += '<div class="note">⚠️ L\'application doit être ouverte depuis son adresse en <b>https</b> (lien GitHub Pages) pour pouvoir être installée.</div>';
+  }
+  if (ios) {
+    html += `<ol class="steps">
+      <li>Ouvrez ce lien dans <b>Safari</b> (pas depuis l'appareil photo ou une autre application).</li>
+      <li>Touchez le bouton <b>Partager</b> (carré avec une flèche vers le haut).</li>
+      <li>Choisissez <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b>.</li></ol>`;
+  } else if (samsung) {
+    html += `<ol class="steps">
+      <li>Touchez le menu <b>☰</b> en bas de l'écran.</li>
+      <li>Choisissez <b>« Ajouter la page à »</b> → <b>« Écran d'accueil »</b>.</li></ol>`;
+  } else {
+    html += `<ol class="steps">
+      ${inApp ? '<li>Vous êtes dans l\'aperçu d\'une autre application (lecteur de QR code, messagerie…). Touchez <b>⋮</b> puis <b>« Ouvrir dans Chrome »</b>, ou copiez le lien ci-dessous et collez-le dans Chrome.</li>' : ''}
+      <li>Dans <b>Chrome</b>, touchez le menu <b>⋮</b> en haut à droite.</li>
+      <li>Choisissez <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>, puis confirmez.</li>
+      <li>L'icône <b>Stages Auto</b> apparaît sur l'écran d'accueil.</li></ol>`;
+  }
+  html += '<div class="note">Astuce : après avoir scanné le QR code, choisissez « Ouvrir dans Chrome » plutôt que l\'aperçu proposé par l\'appareil photo.</div>';
+  $('#iBody').innerHTML = html;
+  openSheet('#shI');
+};
+$('#iCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href.split('#')[0]); toast('Lien copié : collez-le dans Chrome'); }
+  catch (e) { prompt('Copiez ce lien :', location.href.split('#')[0]); }
+};
+
+/* ---------- Démarrage ---------- */
+document.querySelectorAll('#rads [data-r]').forEach(b => b.classList.toggle('on', +b.dataset.r === rad));
+drawBadges();
+$('#list').innerHTML = '<div class="empty"><div class="big">📍</div>Saisissez la ville ou l\'adresse du stagiaire,<br>ou touchez 📍 pour utiliser votre position.</div>';
+try {
+  const o = JSON.parse(store.get('loc_origin') || 'null');
+  if (o && typeof o.lat === 'number') { $('#q').value = o.label; $('#clear').hidden = false; setOrigin(o.lat, o.lon, o.label); }
+} catch (e) { /* pas de recherche précédente */ }
+
+// Application installable et utilisable hors connexion (uniquement en https)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
